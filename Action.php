@@ -141,4 +141,16 @@ class Action
         }
         return false;
     }
+
+    function get_clubs()
+    {
+        $statement = $this->connection->prepare("SELECT name FROM club");
+        $statement->execute();
+        $statement->bind_result($club);
+        $clubs = array();
+        while ($statement->fetch()) {
+            array_push($clubs, $club);
+        }
+        return $clubs;
+    }
 }
