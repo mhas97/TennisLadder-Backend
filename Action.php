@@ -41,7 +41,7 @@ class Action
     {
         $hashed_password = password_hash($password, PASSWORD_DEFAULT);
         $statement = $this->connection->prepare("INSERT INTO player (email, password, contactno, fname, lname, clubid) VALUES (?, ?, ?, ?, ?, (SELECT clubid from club WHERE name = ?))");
-        $statement->bind_param("sssssi", $email, $hashed_password, $contactno, $fname, $lname, $clubname);
+        $statement->bind_param("ssssss", $email, $hashed_password, $contactno, $fname, $lname, $clubname);
         if ($statement->execute())
         {
             return true;

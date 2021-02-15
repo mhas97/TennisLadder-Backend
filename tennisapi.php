@@ -111,7 +111,8 @@ if (isset($_GET["tennisapi"]))
             $db = new Action();
             $response["error"] = false;
             $response["message"] = "Club info successfully retrieved";
-            $response["players"] = $db->get_clubs();
+            $response["clubs"] = $db->get_clubs();
+            break;
         default:
             $response["error"] = true;
             $response["message"] = "Stated API functionality does not exist";
