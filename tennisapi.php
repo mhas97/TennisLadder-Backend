@@ -53,6 +53,7 @@ if (isset($_GET["tennisapi"]))
             {
                 $response["error"] = false;
                 $response["message"] = "Login successful";
+                $response["player"] = $db->get_player_data($_POST["email"]);
             } else {
                 $response["error"] = true;
                 $response["message"] = "Login failed";
@@ -95,6 +96,44 @@ if (isset($_GET["tennisapi"]))
             $response["error"] = false;
             $response["message"] = "Ladder info successfully retrieved";
             $response["players"] = $db->get_ladder_data();
+            break;
+        case "create_challenge":
+            check_for_parameters(array("clubname", "date", "time"));
+            $db = new Action();
+            $result = $db->create_challenge
+            (
+                $_POST["clubname"],
+                $_POST["date"],
+                $_POST["time"]
+            );
+            if ($result)
+            {
+                $response["error"] = false;
+                $response["message"] = "Challenge successfully created";
+                $response["challengeid"] = $db->get_challenge_id();
+            } else {
+                $response["error"] = true;
+                $response["message"] = "Error creating challenge";
+            }
+            break;
+        case "create_player_challenge":
+            check_for_parameters(array("challengeid", "playerid", "didinitiate"));
+            $db = new Action();
+            $result = $db->create_player_challenge
+            (
+                $_POST["challengeid"],
+                $_POST["playerid"],
+                $_POST["didinitiate"]
+            );
+            if ($result)
+            {
+                $response["error"] = false;
+                $response["message"] = "Player challenge successfully created";
+
+            } else {
+                $response["error"] = true;
+                $response["message"] = "Error creating player challenge";
+            }
             break;
         case "delete_player":
             if (isset($_GET["playerid"])) {

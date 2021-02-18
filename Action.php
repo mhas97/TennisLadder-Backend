@@ -71,20 +71,20 @@ class Action
      * Retrieves player info for a given ID.
      * This will likely be used upon signing in to fetch the users info.
      */
-    function get_player_data($playerid)
+    function get_player_data($email)
     {
-        $statement = $this->connection->prepare("SELECT email, password, contactno, fname, lname, clubid, elo FROM player WHERE playerid = ?");
-        $statement->bind_param("i", $playerid);
+        $statement = $this->connection->prepare("SELECT playerid, contactno, fname, lname, (SELECT name from club where player.clubid = club.clubid), elo FROM player WHERE email = ?");
+        $statement->bind_param("s", $email);
         $statement->execute();
-        $statement->bind_result($email, $password, $contactno, $fname, $lname, $clubid, $elo);
+        $statement->bind_result($playerid, $contactno, $fname, $lname, $clubname, $elo);
         $statement->fetch();
         $player = array();
+        $player["playerid"] = $playerid;
         $player["email"] = $email;
-        $player["password"] = $password;
         $player["contactno"] = $contactno;
         $player["fname"] = $fname;
         $player["lname"] = $lname;
-        $player["clubid"] = $clubid;
+        $player["clubname"] = $clubname;
         $player["elo"] = $elo;
         return $player;
     }
@@ -97,19 +97,55 @@ class Action
      */
     function get_ladder_data()
     {
-        $statement = $this->connection->prepare("SELECT fname, lname, clubid, elo  FROM player");
+        $statement = $this->connection->prepare("SELECT playerid, fname, lname, (SELECT name FROM club WHERE player.clubid = club.clubid), elo, hotstreak FROM player");
         $statement->execute();
-        $statement->bind_result($fname, $lname, $clubid, $elo);
+        $statement->bind_result($playerid, $fname, $lname, $clubname, $elo, $hotstreak);
         $players = array();
         while ($statement->fetch()) {
             $player = array();
+            $player["playerid"] = $playerid;
             $player["fname"] = $fname;
             $player["lname"] = $lname;
-            $player["clubid"] = $clubid;
+            $player["clubname"] = $clubname;
             $player["elo"] = $elo;
+            $player["hotstreak"] = $hotstreak;
             array_push($players, $player);
         }
         return $players;
+    }
+
+    function create_challenge($clubname, $date, $time)
+    {
+        $statement = $this->connection->prepare("INSERT INTO challenge (clubid, date, time) VALUES ((SELECT clubid from club WHERE name = ?), ?, ?)");
+        $statement->bind_param("sss", $clubname, $date, $time);
+        if ($statement->execute())
+        {
+            return true;
+        }
+        return false;
+    }
+
+    function create_player_challenge($challengeid, $playerid, $didinitiate)
+    {
+        $challengeid = intval($challengeid);
+        $playerid = intval($playerid);
+        $didinitiate = intval($didinitiate);
+        $statement = $this->connection->prepare("INSERT INTO player_challenge (challengeid, playerid, didinitiate) VALUES (?, ?, ?)");
+        $statement->bind_param("iii", $challengeid, $playerid, $didinitiate);
+        if ($statement->execute())
+        {
+            return true;
+        }
+        return false;
+    }
+
+    function get_challenge_id() {
+        $statement = $this->connection->prepare("SELECT challengeid FROM challenge ORDER BY challengeid DESC LIMIT 1"); // BAD!
+        $statement->execute();
+        $statement->bind_result($challengeid);
+        $statement->fetch();
+        $challengeid = strval($challengeid); // Must return a string.
+        return $challengeid;
     }
 
 
@@ -142,6 +178,10 @@ class Action
         return false;
     }
 
+    /**
+     * @return array
+     * Return a list of valid clubs
+     */
     function get_clubs()
     {
         $statement = $this->connection->prepare("SELECT name FROM club");
