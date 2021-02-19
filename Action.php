@@ -116,6 +116,9 @@ class Action
 
     function create_challenge($clubname, $date, $time)
     {
+        $date = intval($date);
+        $mysqldate = date("Y-m-d", $date);
+        echo $mysqldate;
         $statement = $this->connection->prepare("INSERT INTO challenge (clubid, date, time) VALUES ((SELECT clubid from club WHERE name = ?), ?, ?)");
         $statement->bind_param("sss", $clubname, $date, $time);
         if ($statement->execute())
