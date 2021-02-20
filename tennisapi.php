@@ -135,6 +135,17 @@ if (isset($_GET["tennisapi"]))
                 $response["message"] = "Error creating player challenge";
             }
             break;
+        case "get_challenges":
+            if (isset($_GET["playerid"])) {
+                $db = new Action();
+                $response["error"] = false;
+                $response["message"] = "Challenges successfully retrieved";
+                $response["challenges"] = $db->get_challenges($_GET["playerid"]);
+            } else {
+                $response["error"] = true;
+                $response["message"] = "Please provide a player ID";
+            }
+            break;
         case "delete_player":
             if (isset($_GET["playerid"])) {
                 $db = new Action();
