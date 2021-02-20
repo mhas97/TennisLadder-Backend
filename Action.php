@@ -85,7 +85,7 @@ class Action
      */
     function get_player_data($email)
     {
-        $statement = $this->connection->prepare("SELECT playerid, contactno, fname, lname, (SELECT name from club where player.clubid = club.clubid), elo FROM player WHERE email = ?");
+        $statement = $this->connection->prepare("SELECT playerid, contactno, fname, lname, (SELECT name FROM club WHERE player.clubid = club.clubid), elo FROM player WHERE email = ?");
         $statement->bind_param("s", $email);
         $statement->execute();
         $statement->bind_result($playerid, $contactno, $fname, $lname, $clubname, $elo);
@@ -173,7 +173,7 @@ class Action
     /**
      * This function was the original method used to get a list of challenges for a given player id.
      * This has since been refactored and improved, querying more efficiently as well as returning
-     * data in a format which is simpler to parse (see get_challenges below).
+     * data in recognisable JSON format which is simpler to parse (see get_challenges below).
      */
  /*   function get_challenges($playerid)
     {
@@ -231,28 +231,36 @@ class Action
 
     /**
      * The improved get challenges method.
+     * First get a list of challenge ID's and results (win/loss) from the challenge table, insert these into an array of keypair values.
+     * Using the challenge ID's we just obtained, query for other data relating to the challenge, player and opponent.
+     * As we go through, append the data from the first array (which was used to identify challenge ID's) to the array which is returned.
+     * This results in final array being ready for JSON encoding.
      */
     function get_challenges($playerid) {
-        $statement_get_challenge_ids = $this->connection->prepare("SELECT challengeid FROM player_challenge WHERE playerid = ?");
+        $statement_get_challenge_ids = $this->connection->prepare("SELECT challengeid, didwin FROM player_challenge WHERE playerid = ?");
         $playerid = intval($playerid);
         $statement_get_challenge_ids->bind_param("i", $playerid);
         $statement_get_challenge_ids->execute();
-        $statement_get_challenge_ids->bind_result($challengeid);
-        $challengeids = array();
+        $statement_get_challenge_ids->bind_result($challengeid, $didwin);
+        $challengeids_locs = array();
         while ($statement_get_challenge_ids->fetch()) {
-            array_push($challengeids, $challengeid);
+            $challengeid_loc = array();
+            $challengeid_loc["challengeid"] = $challengeid;
+            $challengeid_loc["didwin"] = $didwin;
+            array_push($challengeids_locs, $challengeid_loc);
         }
 
         $challenges = array();
 
-        foreach ($challengeids as $c) {
+        foreach ($challengeids_locs as $c) {
             $statement_get_opponent_id = $this->connection->prepare("SELECT playerid FROM player_challenge WHERE challengeid = ? AND playerid != ?");
             $statement_get_opponent_data = $this->connection->prepare("SELECT fname, lname FROM player WHERE playerid = ?");
-            $statement_get_challenge_data = $this->connection->prepare("SELECT date, time FROM challenge WHERE challengeid = ?");
+            $statement_get_challenge_data = $this->connection->prepare("SELECT date, time, (SELECT name FROM club WHERE challenge.clubid = club.clubid ), score FROM challenge WHERE challengeid = ?");
             $challenge = array();
-            $challenge["challengeid"] = strval($c);
+            $challenge["challengeid"] = strval($c["challengeid"]);
+            $challenge["didwin"] = strval($c["didwin"]);
 
-            $statement_get_opponent_id->bind_param("ii", $c, $playerid);
+            $statement_get_opponent_id->bind_param("ii", $c["challengeid"], $playerid);
             $statement_get_opponent_id->execute();
             $statement_get_opponent_id->bind_result($opponentid);
             $statement_get_opponent_id->fetch();
@@ -267,12 +275,14 @@ class Action
             $challenge["lname"] = $lname;
             $statement_get_opponent_data->close();
 
-            $statement_get_challenge_data->bind_param("i", $c);
+            $statement_get_challenge_data->bind_param("i", $c["challengeid"]);
             $statement_get_challenge_data->execute();
-            $statement_get_challenge_data->bind_result($date, $time);
+            $statement_get_challenge_data->bind_result($date, $time, $location, $score);
             $statement_get_challenge_data->fetch();
             $challenge["date"] = $date;
             $challenge["time"] = $time;
+            $challenge["location"] = $location;
+            $challenge["score"] = $score;
             $statement_get_challenge_data->close();
 
             array_push($challenges, $challenge);
