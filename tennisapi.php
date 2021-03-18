@@ -135,12 +135,12 @@ if (isset($_GET["tennisapi"]))
                 $response["message"] = "Error creating player challenge";
             }
             break;
-        case "get_challenges":
+        case "get_match_history":
             if (isset($_GET["playerid"])) {
                 $db = new Action();
                 $response["error"] = false;
-                $response["message"] = "Challenges successfully retrieved";
-                $response["challenges"] = $db->get_challenges($_GET["playerid"]);
+                $response["message"] = "Match history successfully retrieved";
+                $response["challenges"] = $db->get_match_history($_GET["playerid"]);
             } else {
                 $response["error"] = true;
                 $response["message"] = "Please provide a player ID";
@@ -162,6 +162,17 @@ if (isset($_GET["tennisapi"]))
             $response["error"] = false;
             $response["message"] = "Club info successfully retrieved";
             $response["clubs"] = $db->get_clubs();
+            break;
+        case "get_challenges":
+            if (isset($_GET["playerid"])) {
+                $db = new Action();
+                $response["error"] = false;
+                $response["message"] = "Challenges successfully retrieved";
+                $response["challenges"] = $db->get_challenges($_GET["playerid"]);
+            } else {
+                $response["error"] = true;
+                $response["message"] = "Please provide a player ID";
+            }
             break;
         default:
             $response["error"] = true;
