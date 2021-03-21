@@ -321,6 +321,15 @@ class Action
         return false;
     }
 
+    function accept_challenge($challengeid) {
+        $statement = $this->connection->prepare("UPDATE challenge SET accepted = 1 WHERE challengeid = ?");
+        $statement->bind_param("i", $challengeid);
+        if ($statement->execute()) {
+            return true;
+        }
+        return false;
+    }
+
     function cancel_challenge($challengeid) {
         $statement_player_challenge = $this->connection->prepare("DELETE FROM player_challenge WHERE challengeid = ?");
         $statement_player_challenge->bind_param("i", $challengeid);

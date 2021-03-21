@@ -174,6 +174,17 @@ if (isset($_GET["tennisapi"]))
                 $response["message"] = "Please provide a player ID";
             }
             break;
+        case "accept_challenge":
+            if(isset($_GET["challengeid"])) {
+                $db = new Action();
+                $response["error"] = false;
+                $response["message"] = "Challenge successfully accepted";
+                $db->accept_challenge($_GET["challengeid"]);
+            } else {
+                $response["error"] = true;
+                $response["message"] = "Please provide a challenge ID";
+            }
+            break;
         case "cancel_challenge":
             if(isset($_GET["challengeid"])) {
                 $db = new Action();
