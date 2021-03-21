@@ -200,7 +200,7 @@ class Action
         foreach ($challengeids_locs as $c) {
             $statement_get_opponent_id = $this->connection->prepare("SELECT playerid FROM player_challenge WHERE challengeid = ? AND playerid != ?");
             $statement_get_opponent_data = $this->connection->prepare("SELECT fname, lname FROM player WHERE playerid = ?");
-            $statement_get_challenge_data = $this->connection->prepare("SELECT date, time, (SELECT name FROM club WHERE challenge.clubid = club.clubid ), score FROM challenge WHERE challengeid = ?");
+            $statement_get_challenge_data = $this->connection->prepare("SELECT date, time, (SELECT name FROM club WHERE challenge.clubid = club.clubid ), accepted FROM challenge WHERE challengeid = ?");
             $challenge = array();
             $challenge["challengeid"] = strval($c["challengeid"]);
             $challenge["didinitiate"] = strval($c["didinitiate"]);
@@ -222,12 +222,12 @@ class Action
 
             $statement_get_challenge_data->bind_param("i", $c["challengeid"]);
             $statement_get_challenge_data->execute();
-            $statement_get_challenge_data->bind_result($date, $time, $location, $score);
+            $statement_get_challenge_data->bind_result($date, $time, $location, $accepted);
             $statement_get_challenge_data->fetch();
             $challenge["date"] = $date;
             $challenge["time"] = $time;
             $challenge["location"] = $location;
-            $challenge["score"] = $score;
+            $challenge["accepted"] = strval($accepted);
             $statement_get_challenge_data->close();
             array_push($challenges, $challenge);
         }
@@ -311,15 +311,28 @@ class Action
      * @return bool
      *  Delete a player with associated ID.
      */
-    function delete_player($playerid)
-    {
-        $statement = $this->connection->prepare("DELETE from player WHERE playerid = ?");
+    function delete_player($playerid) {
+        $statement = $this->connection->prepare("DELETE FROM player WHERE playerid = ?");
         $statement->bind_param("i", $playerid);
         if ($statement->execute())
         {
             return true;
         }
         return false;
+    }
+
+    function cancel_challenge($challengeid) {
+        $statement_player_challenge = $this->connection->prepare("DELETE FROM player_challenge WHERE challengeid = ?");
+        $statement_player_challenge->bind_param("i", $challengeid);
+        $statement_challenge = $this->connection->prepare("DELETE FROM challenge WHERE challengeid = ?");
+        $statement_challenge->bind_param("i", $challengeid);
+        if (!$statement_player_challenge->execute()) {
+            return false;
+        }
+        if (!$statement_challenge->execute()) {
+            return false;
+        }
+        return true;
     }
 
     /**
