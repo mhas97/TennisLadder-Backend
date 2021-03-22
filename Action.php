@@ -344,6 +344,40 @@ class Action
         return true;
     }
 
+    function post_result($challengeid, $winnerid, $loserid, $score, $winnerelo, $loserelo) {
+        $statement = $this->connection->prepare("UPDATE challenge SET score = ? WHERE challengeid = ?");
+        $challengeid = intval($challengeid);
+        $winnerid = intval($winnerid);
+        $loserid = intval($loserid);
+        $winnerelo = intval($winnerelo);
+        $loserelo = intval($loserelo);
+        $statement->bind_param("si", $score, $challengeid);
+        if (!$statement->execute()) {
+            return false;
+        }
+        $statement_winner = $this->connection->prepare("UPDATE player_challenge SET didwin = 1 WHERE challengeid = ? AND playerid = ?");
+        $statement_winner->bind_param("ii", $challengeid, $winnerid);
+        if (!$statement_winner->execute()) {
+            return false;
+        }
+        $statement_loser = $this->connection->prepare("UPDATE player_challenge SET didwin = 0 WHERE challengeid = ? AND playerid = ?");
+        $statement_loser->bind_param("ii", $challengeid, $loserid);
+        if (!$statement_loser->execute()) {
+            return false;
+        }
+        $statement_winner_player = $this->connection->prepare("UPDATE player SET elo = ? WHERE playerid = ?");
+        $statement_winner_player->bind_param("ii", $winnerelo, $winnerid);
+        if (!$statement_winner_player->execute()) {
+            return false;
+        }
+        $statment_loser_player = $this->connection->prepare("UPDATE player SET elo = ? WHERE playerid = ?");
+        $statment_loser_player->bind_param("ii", $loserelo, $loserid);
+        if (!$statment_loser_player->execute()) {
+            return false;
+        }
+        return true;
+    }
+
     /**
      * This function was the original method used to get a list of challenges for a given player id.
      * This has since been refactored and improved, querying more efficiently as well as returning

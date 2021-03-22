@@ -196,6 +196,28 @@ if (isset($_GET["tennisapi"]))
                 $response["message"] = "Please provide a challenge ID";
             }
             break;
+        case "post_result":
+            check_for_parameters(array("challengeid", "winnerid", "loserid", "score", "winnerelo", "loserelo"));
+            $db = new Action();
+            $result = $db->post_result
+            (
+                $_POST["challengeid"],
+                $_POST["winnerid"],
+                $_POST["loserid"],
+                $_POST["score"],
+                $_POST["winnerelo"],
+                $_POST["loserelo"]
+            );
+            if ($result)
+            {
+                $response["error"] = false;
+                $response["message"] = "Result successfully posted";
+
+            } else {
+                $response["error"] = true;
+                $response["message"] = "Error posting result";
+            }
+            break;
         default:
             $response["error"] = true;
             $response["message"] = "Stated API functionality does not exist";
