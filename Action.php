@@ -89,10 +89,10 @@ class Action
      */
     function get_player_data($email)
     {
-        $statement = $this->connection->prepare("SELECT playerid, contactno, fname, lname, (SELECT name FROM club WHERE player.clubid = club.clubid), elo FROM player WHERE email = ?");
+        $statement = $this->connection->prepare("SELECT playerid, contactno, fname, lname, (SELECT name FROM club WHERE player.clubid = club.clubid), elo, hotstreak, matchesplayed, wins, losses, highestelo, clubchamp FROM player WHERE email = ?");
         $statement->bind_param("s", $email);
         $statement->execute();
-        $statement->bind_result($playerid, $contactno, $fname, $lname, $clubname, $elo);
+        $statement->bind_result($playerid, $contactno, $fname, $lname, $clubname, $elo, $hotstreak, $matchesplayed, $wins, $losses, $highestelo, $clubchamp);
         $statement->fetch();
         $player = array();
         $player["playerid"] = $playerid;
@@ -102,6 +102,12 @@ class Action
         $player["lname"] = $lname;
         $player["clubname"] = $clubname;
         $player["elo"] = $elo;
+        $player["hotstreak"] = $hotstreak;
+        $player["matchesplayed"] = $matchesplayed;
+        $player["wins"] = $wins;
+        $player["losses"] = $losses;
+        $player["highestelo"] = $highestelo;
+        $player["clubchamp"] = $clubchamp;
         return $player;
     }
 
@@ -111,11 +117,11 @@ class Action
      * May need some additional info in the future (e.g. club), to specify location.
      * This will prevent unnecessarily large amounts of player data from being retrieved.
      */
-    function get_ladder_data()
+    function get_ladder_profile_data()
     {
-        $statement = $this->connection->prepare("SELECT playerid, fname, lname, (SELECT name FROM club WHERE player.clubid = club.clubid), elo, hotstreak FROM player");
+        $statement = $this->connection->prepare("SELECT playerid, fname, lname, (SELECT name FROM club WHERE player.clubid = club.clubid), elo, hotstreak, matchesplayed, wins, losses, highestelo, clubchamp FROM player");
         $statement->execute();
-        $statement->bind_result($playerid, $fname, $lname, $clubname, $elo, $hotstreak);
+        $statement->bind_result($playerid, $fname, $lname, $clubname, $elo, $hotstreak, $matchesplayed, $wins, $losses, $highestelo, $clubchamp);
         $players = array();
         while ($statement->fetch()) {
             $player = array();
@@ -125,6 +131,11 @@ class Action
             $player["clubname"] = $clubname;
             $player["elo"] = $elo;
             $player["hotstreak"] = $hotstreak;
+            $player["matchesplayed"] = $matchesplayed;
+            $player["wins"] = $wins;
+            $player["losses"] = $losses;
+            $player["highestelo"] = $highestelo;
+            $player["clubchamp"] = $clubchamp;
             array_push($players, $player);
         }
         return $players;
@@ -170,7 +181,7 @@ class Action
         $statement->execute();
         $statement->bind_result($challengeid);
         $statement->fetch();
-        $challengeid = strval($challengeid); // Must return a string.
+        $challengeid = strval($challengeid); // This must be returned in string representation as it is fed back as a parameter.
         return $challengeid;
     }
 
@@ -199,25 +210,32 @@ class Action
 
         foreach ($challengeids_locs as $c) {
             $statement_get_opponent_id = $this->connection->prepare("SELECT playerid FROM player_challenge WHERE challengeid = ? AND playerid != ?");
-            $statement_get_opponent_data = $this->connection->prepare("SELECT fname, lname FROM player WHERE playerid = ?");
+            $statement_get_opponent_data = $this->connection->prepare("SELECT fname, lname, elo, hotstreak, matchesplayed, wins, losses, highestelo, clubchamp FROM player WHERE playerid = ?");
             $statement_get_challenge_data = $this->connection->prepare("SELECT date, time, (SELECT name FROM club WHERE challenge.clubid = club.clubid ), accepted FROM challenge WHERE challengeid = ?");
             $challenge = array();
-            $challenge["challengeid"] = strval($c["challengeid"]);
-            $challenge["didinitiate"] = strval($c["didinitiate"]);
+            $challenge["challengeid"] = $c["challengeid"];
+            $challenge["didinitiate"] = $c["didinitiate"];
 
             $statement_get_opponent_id->bind_param("ii", $c["challengeid"], $playerid);
             $statement_get_opponent_id->execute();
             $statement_get_opponent_id->bind_result($opponentid);
             $statement_get_opponent_id->fetch();
-            $challenge["opponentid"] = strval($opponentid);
+            $challenge["opponentid"] = $opponentid;
             $statement_get_opponent_id->close();
 
             $statement_get_opponent_data->bind_param("i", $opponentid);
             $statement_get_opponent_data->execute();
-            $statement_get_opponent_data->bind_result($fname, $lname);
+            $statement_get_opponent_data->bind_result($fname, $lname, $elo, $hotstreak, $matchesplayed, $wins, $losses, $highestelo, $clubchamp);
             $statement_get_opponent_data->fetch();
             $challenge["fname"] = $fname;
             $challenge["lname"] = $lname;
+            $challenge["elo"] = $elo;
+            $challenge["hotstreak"] = $hotstreak;
+            $challenge["matchesplayed"] = $matchesplayed;
+            $challenge["wins"] = $wins;
+            $challenge["losses"] = $losses;
+            $challenge["highestelo"] = $highestelo;
+            $challenge["clubchamp"] = $clubchamp;
             $statement_get_opponent_data->close();
 
             $statement_get_challenge_data->bind_param("i", $c["challengeid"]);
@@ -227,7 +245,7 @@ class Action
             $challenge["date"] = $date;
             $challenge["time"] = $time;
             $challenge["location"] = $location;
-            $challenge["accepted"] = strval($accepted);
+            $challenge["accepted"] = $accepted;
             $statement_get_challenge_data->close();
             array_push($challenges, $challenge);
         }
@@ -259,14 +277,14 @@ class Action
             $statement_get_opponent_data = $this->connection->prepare("SELECT fname, lname FROM player WHERE playerid = ?");
             $statement_get_challenge_data = $this->connection->prepare("SELECT date, time, (SELECT name FROM club WHERE challenge.clubid = club.clubid ), score FROM challenge WHERE challengeid = ?");
             $challenge = array();
-            $challenge["challengeid"] = strval($c["challengeid"]);
-            $challenge["didwin"] = strval($c["didwin"]);
+            $challenge["challengeid"] = $c["challengeid"];
+            $challenge["didwin"] = $c["didwin"];
 
             $statement_get_opponent_id->bind_param("ii", $c["challengeid"], $playerid);
             $statement_get_opponent_id->execute();
             $statement_get_opponent_id->bind_result($opponentid);
             $statement_get_opponent_id->fetch();
-            $challenge["opponentid"] = strval($opponentid);
+            $challenge["opponentid"] = $opponentid;
             $statement_get_opponent_id->close();
 
             $statement_get_opponent_data->bind_param("i", $opponentid);
@@ -393,7 +411,7 @@ class Action
            $statement->bind_result($challengeid);
            $challengeids = array();
            while ($statement->fetch()) {
-               array_push($challengeids, strval($challengeid));
+               array_push($challengeids, $challengeid);
            }
            $statement->close();
            $result["challengeid"] = $challengeids;
@@ -413,7 +431,7 @@ class Action
                $statement_getdetails->bind_result($opponent_fname, $opponent_lname);
                $statement_getdetails->fetch();
                $statement_getdetails->close();
-               array_push($opponent_ids, strval($opponentid));
+               array_push($opponent_ids, $opponentid);
                array_push($opponent_fnames, $opponent_fname);
                array_push($opponent_lnames, $opponent_lname);
            }

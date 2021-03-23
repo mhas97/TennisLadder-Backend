@@ -91,11 +91,11 @@ if (isset($_GET["tennisapi"]))
                 $response["message"] = "Please provide a player ID";
             }
             break;
-        case "get_ladder_data":
+        case "get_ladder_profile_data":
             $db = new Action();
             $response["error"] = false;
             $response["message"] = "Ladder info successfully retrieved";
-            $response["players"] = $db->get_ladder_data();
+            $response["players"] = $db->get_ladder_profile_data();
             break;
         case "create_challenge":
             check_for_parameters(array("clubname", "date", "time"));
