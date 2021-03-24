@@ -89,10 +89,10 @@ class Action
      */
     function get_player_data($email)
     {
-        $statement = $this->connection->prepare("SELECT playerid, contactno, fname, lname, (SELECT name FROM club WHERE player.clubid = club.clubid), elo, hotstreak, matchesplayed, wins, losses, highestelo, clubchamp FROM player WHERE email = ?");
+        $statement = $this->connection->prepare("SELECT playerid, contactno, fname, lname, (SELECT name FROM club WHERE player.clubid = club.clubid), elo, winstreak, hotstreak, matchesplayed, wins, losses, highestelo, clubchamp FROM player WHERE email = ?");
         $statement->bind_param("s", $email);
         $statement->execute();
-        $statement->bind_result($playerid, $contactno, $fname, $lname, $clubname, $elo, $hotstreak, $matchesplayed, $wins, $losses, $highestelo, $clubchamp);
+        $statement->bind_result($playerid, $contactno, $fname, $lname, $clubname, $elo, $winstreak, $hotstreak, $matchesplayed, $wins, $losses, $highestelo, $clubchamp);
         $statement->fetch();
         $player = array();
         $player["playerid"] = $playerid;
@@ -102,6 +102,7 @@ class Action
         $player["lname"] = $lname;
         $player["clubname"] = $clubname;
         $player["elo"] = $elo;
+        $player["winstreak"] = $winstreak;
         $player["hotstreak"] = $hotstreak;
         $player["matchesplayed"] = $matchesplayed;
         $player["wins"] = $wins;
@@ -119,9 +120,9 @@ class Action
      */
     function get_ladder_profile_data()
     {
-        $statement = $this->connection->prepare("SELECT playerid, fname, lname, (SELECT name FROM club WHERE player.clubid = club.clubid), elo, hotstreak, matchesplayed, wins, losses, highestelo, clubchamp FROM player");
+        $statement = $this->connection->prepare("SELECT playerid, fname, lname, (SELECT name FROM club WHERE player.clubid = club.clubid), elo, winstreak, hotstreak, matchesplayed, wins, losses, highestelo, clubchamp FROM player");
         $statement->execute();
-        $statement->bind_result($playerid, $fname, $lname, $clubname, $elo, $hotstreak, $matchesplayed, $wins, $losses, $highestelo, $clubchamp);
+        $statement->bind_result($playerid, $fname, $lname, $clubname, $elo, $winstreak, $hotstreak, $matchesplayed, $wins, $losses, $highestelo, $clubchamp);
         $players = array();
         while ($statement->fetch()) {
             $player = array();
@@ -130,6 +131,7 @@ class Action
             $player["lname"] = $lname;
             $player["clubname"] = $clubname;
             $player["elo"] = $elo;
+            $player["winstreak"] = $winstreak;
             $player["hotstreak"] = $hotstreak;
             $player["matchesplayed"] = $matchesplayed;
             $player["wins"] = $wins;
@@ -210,7 +212,7 @@ class Action
 
         foreach ($challengeids_locs as $c) {
             $statement_get_opponent_id = $this->connection->prepare("SELECT playerid FROM player_challenge WHERE challengeid = ? AND playerid != ?");
-            $statement_get_opponent_data = $this->connection->prepare("SELECT fname, lname, elo, hotstreak, matchesplayed, wins, losses, highestelo, clubchamp FROM player WHERE playerid = ?");
+            $statement_get_opponent_data = $this->connection->prepare("SELECT fname, lname, elo, winstreak, hotstreak, matchesplayed, wins, losses, highestelo, clubchamp FROM player WHERE playerid = ?");
             $statement_get_challenge_data = $this->connection->prepare("SELECT date, time, (SELECT name FROM club WHERE challenge.clubid = club.clubid ), accepted FROM challenge WHERE challengeid = ?");
             $challenge = array();
             $challenge["challengeid"] = $c["challengeid"];
@@ -225,11 +227,12 @@ class Action
 
             $statement_get_opponent_data->bind_param("i", $opponentid);
             $statement_get_opponent_data->execute();
-            $statement_get_opponent_data->bind_result($fname, $lname, $elo, $hotstreak, $matchesplayed, $wins, $losses, $highestelo, $clubchamp);
+            $statement_get_opponent_data->bind_result($fname, $lname, $elo, $winstreak, $hotstreak, $matchesplayed, $wins, $losses, $highestelo, $clubchamp);
             $statement_get_opponent_data->fetch();
             $challenge["fname"] = $fname;
             $challenge["lname"] = $lname;
             $challenge["elo"] = $elo;
+            $challenge["winstreak"] = $winstreak;
             $challenge["hotstreak"] = $hotstreak;
             $challenge["matchesplayed"] = $matchesplayed;
             $challenge["wins"] = $wins;
@@ -362,38 +365,83 @@ class Action
         return true;
     }
 
-    function post_result($challengeid, $winnerid, $loserid, $score, $winnerelo, $loserelo) {
-        $statement = $this->connection->prepare("UPDATE challenge SET score = ? WHERE challengeid = ?");
+    function post_result($challengeid, $winnerid, $loserid, $score, $winnerelo, $loserelo, $newhighestelo, $hotstreak) {
+
         $challengeid = intval($challengeid);
         $winnerid = intval($winnerid);
         $loserid = intval($loserid);
         $winnerelo = intval($winnerelo);
         $loserelo = intval($loserelo);
+        $newhighestelo = intval($newhighestelo);
+        $hotstreak = intval($hotstreak);
+
+        $current_club_champion = $this->get_club_champion($winnerid);
+        if ($winnerelo >= $current_club_champion) {
+            $clubchampion = 1;
+            $this->remove_champion_status($current_club_champion);
+        }
+        else {
+            $clubchampion = 0;
+        }
+
+        $statement = $this->connection->prepare("UPDATE challenge SET score = ? WHERE challengeid = ?");
         $statement->bind_param("si", $score, $challengeid);
         if (!$statement->execute()) {
             return false;
         }
+
         $statement_winner = $this->connection->prepare("UPDATE player_challenge SET didwin = 1 WHERE challengeid = ? AND playerid = ?");
         $statement_winner->bind_param("ii", $challengeid, $winnerid);
         if (!$statement_winner->execute()) {
             return false;
         }
+
         $statement_loser = $this->connection->prepare("UPDATE player_challenge SET didwin = 0 WHERE challengeid = ? AND playerid = ?");
         $statement_loser->bind_param("ii", $challengeid, $loserid);
         if (!$statement_loser->execute()) {
             return false;
         }
-        $statement_winner_player = $this->connection->prepare("UPDATE player SET elo = ? WHERE playerid = ?");
-        $statement_winner_player->bind_param("ii", $winnerelo, $winnerid);
+
+        $statement_winner_player = $this->connection->prepare("UPDATE player SET elo = ?, winstreak = winstreak + 1, hotstreak = ?, matchesplayed = matchesplayed + 1, wins = wins + 1, highestelo = ?, clubchamp = ? WHERE playerid = ?");
+        $statement_winner_player->bind_param("iiiii", $winnerelo, $hotstreak, $newhighestelo, $clubchampion, $winnerid);
         if (!$statement_winner_player->execute()) {
             return false;
         }
-        $statment_loser_player = $this->connection->prepare("UPDATE player SET elo = ? WHERE playerid = ?");
-        $statment_loser_player->bind_param("ii", $loserelo, $loserid);
-        if (!$statment_loser_player->execute()) {
+
+        $statement_loser_player = $this->connection->prepare("UPDATE player SET elo = ?, winstreak = 0, hotstreak = 0, matchesplayed = matchesplayed + 1, losses = losses + 1 WHERE playerid = ?");
+        $statement_loser_player->bind_param("ii", $loserelo, $loserid);
+        if (!$statement_loser_player->execute()) {
             return false;
         }
+
         return true;
+    }
+
+    function get_club_champion($winnerid) {
+        $statement_get_club = $this->connection->prepare("SELECT clubid FROM player WHERE playerid = ?");
+        $statement_get_club->bind_param("i", $winnerid);
+        $statement_get_club->execute();
+        $statement_get_club->bind_result($clubid);
+        $statement_get_club->fetch();
+        $statement_get_club->close();
+
+        $statement_get_elos = $this->connection->prepare("SELECT playerid, elo FROM player WHERE clubid = ?");
+        $statement_get_elos->bind_param("i", $clubid);
+        $statement_get_elos->execute();
+        $statement_get_elos->bind_result($playerid, $elo);
+        $elos = array();
+        while ($statement_get_elos->fetch()) {
+            if ($playerid != $winnerid) {
+                array_push($elos, $elo);
+            }
+        }
+        return max($elos);
+    }
+
+    function remove_champion_status($currentclubchampion) {
+        $statement = $this->connection->prepare("UPDATE player SET clubchamp = 0 WHERE elo = ?");
+        $statement->bind_param("i", $currentclubchampion);
+        $statement->execute();
     }
 
     /**

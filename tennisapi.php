@@ -197,7 +197,7 @@ if (isset($_GET["tennisapi"]))
             }
             break;
         case "post_result":
-            check_for_parameters(array("challengeid", "winnerid", "loserid", "score", "winnerelo", "loserelo"));
+            check_for_parameters(array("challengeid", "winnerid", "loserid", "score", "winnerelo", "loserelo", "newhighestelo", "hotstreak"));
             $db = new Action();
             $result = $db->post_result
             (
@@ -206,7 +206,9 @@ if (isset($_GET["tennisapi"]))
                 $_POST["loserid"],
                 $_POST["score"],
                 $_POST["winnerelo"],
-                $_POST["loserelo"]
+                $_POST["loserelo"],
+                $_POST["newhighestelo"],
+                $_POST["hotstreak"]
             );
             if ($result)
             {
