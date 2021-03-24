@@ -255,8 +255,10 @@ class Action
         return $challenges;
     }
 
+    /*TODO*/
+    // Remove unnecessary returns.
     /**
-     * Operates similarly to the get_challenges() function, this simply returns data related to completed matches
+     * Operates similarly to get_challenges(), this simply returns data related to completed matches
      * rather than challenges, where a "match" is a challenge that has been accepted, played, with a score reported.
      */
     function get_match_history($playerid) {
