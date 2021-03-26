@@ -1,170 +1,190 @@
-<?php
+<?php /** @noinspection ALL */
 
 // [REF: https://www.simplifiedcoding.net/android-mysql-tutorial-to-perform-basic-crud-operation/#Android-MySQL-Tutorial]
 
-class Action
-{
+/**
+ * Class Action
+ */
+class Action {
+
     private $connection;
 
     /**
-     * Action constructor.
-     * Obtains a connection object via the Connection class.
+     * Obtains a mysqli connection object via the Connection class.
      */
-    function __construct()
-    {
+    function __construct(){
         require_once dirname(__FILE__) . "/Connection.php";
-        $db = new Connection();
-        $this->connection = $db->connect();
+        $tennisDatabase = new Connection();
+        $this->connection = $tennisDatabase->connect();
     }
 
-    function login($email, $password)
-    {
-        $statement = $this->connection->prepare("SELECT password FROM player WHERE email = ?");
-        $statement->bind_param("s",  $email);
-        $statement->execute();
-        $statement->bind_result($hashed_password);
-        $statement->fetch();
-        if (password_verify($password, $hashed_password))
-        {
+    /**
+     * Providing the email exists, checks the provided hashed password against
+     * the hashed password stored in the database. A maximum of 1 user can be
+     * retrieved, as the email is ensured to be unique upon signup.
+     */
+    function login($email, $password) {
+        /* Prepare statement. */
+        $statementLogin = $this->connection->prepare("SELECT password FROM player WHERE email = ?");
+        $statementLogin->bind_param("s",  $email);
+
+        /* Execute and fetch results. */
+        $statementLogin->execute();
+        $statementLogin->bind_result($hashedPassword);
+        $statementLogin->fetch();
+        $statementLogin->close();
+
+        /* Verify the hashed passwords match. */
+        if (password_verify($password, $hashedPassword)) {
             return true;
         }
         return false;
     }
 
     /**
-     * @return bool
-     * Add a new player to the database.
-     * Binds given parameters to SQL statement and attempts to execute.
-     * Returns success status.
+     * Attempt to create a player using the provided parameters. If the email is
+     * already in use, alert the user. The password is hashed prior to database entry.
      */
-    function create_player($email, $password, $contactno, $fname, $lname, $clubname)
-    {
-        $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-        $statement = $this->connection->prepare("INSERT INTO player (email, password, contactno, fname, lname, clubid) VALUES (?, ?, ?, ?, ?, (SELECT clubid from club WHERE name = ?))");
-        $statement->bind_param("ssssss", $email, $hashed_password, $contactno, $fname, $lname, $clubname);
-        if ($statement->execute())
-        {
-            return true;
-        }
-        return false;
+    function create_player($email, $password, $contactNo, $fname, $lname, $clubName) {
+        /* Hash the password and prepare the statement. */
+        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+        $statementSignup = $this->connection->prepare(
+            "INSERT INTO player (email, password, contactno, fname, lname, clubid) 
+                    VALUES (?, ?, ?, ?, ?, (SELECT clubid from club WHERE name = ?))");
+        $statementSignup->bind_param("ssssss", $email, $hashedPassword, $contactNo, $fname, $lname, $clubName);
+
+        /* Execute the statement and return the error code, where 0 indicates success. */
+        $statementSignup->bind_param("ssssss", $email, $hashedPassword, $contactNo, $fname, $lname, $clubName);
+        $statementSignup->execute();
+        $errorNo = $statementSignup->errno;
+        $statementSignup->close();
+        return $errorNo;
     }
 
     /**
-     * @return array
-     * Return a list of valid clubs
+     * Return a list of valid clubs.
      */
-    function get_clubs()
-    {
-        $statement = $this->connection->prepare("SELECT name FROM club");
-        $statement->execute();
-        $statement->bind_result($club);
+    function get_clubs() {
+        /* Prepare statement. */
+        $statementClubs = $this->connection->prepare("SELECT name FROM club");
+        $statementClubs->execute();
+        $statementClubs->bind_result($club);
         $clubs = array();
-        while ($statement->fetch()) {
+
+        /* Execute statement and return clubs array. */
+        while ($statementClubs->fetch()) {
             array_push($clubs, $club);
         }
+        $statementClubs->close();
         return $clubs;
     }
 
     /**
-     * @return bool
-     * Add a new club to the database.
-     * Binds given parameters to SQL statement and attempts to execute.
-     * Returns success status.
+     * Create a new club that can be selected upon user signup.
      */
-    function create_club($name, $address)
-    {
-        $statement = $this->connection->prepare("INSERT INTO club (name, clubid) VALUES (?,?)");
-        $statement->bind_param("ss", $name, $address);
-        if ($statement->execute())
-        {
+    function create_club($name, $address) {
+        /* Prepare and execute statement. */
+        $statementCreateClub = $this->connection->prepare("INSERT INTO club (name, address) VALUES (?,?)");
+        $statementCreateClub->bind_param("ss", $name, $address);
+        if ($statementCreateClub->execute()) {
             return true;
         }
         return false;
     }
 
     /**
-     * @return array
-     * Retrieves player info for a given ID.
-     * This will likely be used upon signing in to fetch the users info.
+     * Upon a successful login attempt, this function is used to return
+     * the necessary user data to perform tasks during the login session.
      */
     function get_player_data($email)
     {
-        $statement = $this->connection->prepare("SELECT playerid, contactno, fname, lname, (SELECT name FROM club WHERE player.clubid = club.clubid), elo, winstreak, hotstreak, matchesplayed, wins, losses, highestelo, clubchamp FROM player WHERE email = ?");
-        $statement->bind_param("s", $email);
-        $statement->execute();
-        $statement->bind_result($playerid, $contactno, $fname, $lname, $clubname, $elo, $winstreak, $hotstreak, $matchesplayed, $wins, $losses, $highestelo, $clubchamp);
-        $statement->fetch();
+        /* Prepare statement. */
+        $statementGetPlayerData = $this->connection->prepare(
+            "SELECT playerid, contactno, fname, lname, (SELECT name FROM club WHERE player.clubid = club.clubid), 
+       elo, winstreak, hotstreak, matchesplayed, wins, losses, highestelo, clubchamp FROM player WHERE email = ?"
+        );
+        $statementGetPlayerData->bind_param("s", $email);
+
+        /* Execute statement and fetch the results. */
+        $statementGetPlayerData->execute();
+        $statementGetPlayerData->bind_result($playerID, $contactNo, $fname, $lname,
+            $clubName, $elo, $winStreak, $hotStreak, $matchesPlayed, $numWins, $numLosses, $highestElo, $clubChamp);
+        $statementGetPlayerData->fetch();
+        $statementGetPlayerData->close();
+
+        /* Create the resulting user data array. */
         $player = array();
-        $player["playerid"] = $playerid;
+        $player["playerid"] = $playerID;
         $player["email"] = $email;
-        $player["contactno"] = $contactno;
+        $player["contactno"] = $contactNo;
         $player["fname"] = $fname;
         $player["lname"] = $lname;
-        $player["clubname"] = $clubname;
+        $player["clubname"] = $clubName;
         $player["elo"] = $elo;
-        $player["winstreak"] = $winstreak;
-        $player["hotstreak"] = $hotstreak;
-        $player["matchesplayed"] = $matchesplayed;
-        $player["wins"] = $wins;
-        $player["losses"] = $losses;
-        $player["highestelo"] = $highestelo;
-        $player["clubchamp"] = $clubchamp;
+        $player["winstreak"] = $winStreak;
+        $player["hotstreak"] = $hotStreak;
+        $player["matchesplayed"] = $matchesPlayed;
+        $player["wins"] = $numWins;
+        $player["losses"] = $numLosses;
+        $player["highestelo"] = $highestElo;
+        $player["clubchamp"] = $clubChamp;
         return $player;
     }
 
     /**
-     * @return array
-     * Acquires necessary ladder info for each player.
-     * May need some additional info in the future (e.g. club), to specify location.
-     * This will prevent unnecessarily large amounts of player data from being retrieved.
+     * Fetch ladder data for display in the ladder fragment. This
+     * includes returning necessary data to view a players profile
+     * as well as create a challenge.
      */
-    function get_ladder_profile_data()
-    {
-        $statement = $this->connection->prepare("SELECT playerid, fname, lname, (SELECT name FROM club WHERE player.clubid = club.clubid), elo, winstreak, hotstreak, matchesplayed, wins, losses, highestelo, clubchamp FROM player");
-        $statement->execute();
-        $statement->bind_result($playerid, $fname, $lname, $clubname, $elo, $winstreak, $hotstreak, $matchesplayed, $wins, $losses, $highestelo, $clubchamp);
+    function get_ladder_profile_data() {
+        /* Prepare statement. */
+        $statementLadder = $this->connection->prepare(
+            "SELECT playerid, fname, lname, (SELECT name FROM club WHERE player.clubid = club.clubid), 
+       elo, winstreak, hotstreak, matchesplayed, wins, losses, highestelo, clubchamp FROM player"
+        );
+
+        /* Execute statement and fetch results */
+        $statementLadder->execute();
+        $statementLadder->bind_result($playerID, $fname, $lname, $clubName, $elo,
+            $winStreak, $hotStreak, $matchesPlayed, $numWins, $numLosses, $highestElo, $clubChamp);
+
+        /* Create the resulting array of ladder data */
         $players = array();
-        while ($statement->fetch()) {
+        while ($statementLadder->fetch()) {
             $player = array();
-            $player["playerid"] = $playerid;
+            $player["playerid"] = $playerID;
             $player["fname"] = $fname;
             $player["lname"] = $lname;
-            $player["clubname"] = $clubname;
+            $player["clubname"] = $clubName;
             $player["elo"] = $elo;
-            $player["winstreak"] = $winstreak;
-            $player["hotstreak"] = $hotstreak;
-            $player["matchesplayed"] = $matchesplayed;
-            $player["wins"] = $wins;
-            $player["losses"] = $losses;
-            $player["highestelo"] = $highestelo;
-            $player["clubchamp"] = $clubchamp;
+            $player["winstreak"] = $winStreak;
+            $player["hotstreak"] = $hotStreak;
+            $player["matchesplayed"] = $matchesPlayed;
+            $player["wins"] = $numWins;
+            $player["losses"] = $numLosses;
+            $player["highestelo"] = $highestElo;
+            $player["clubchamp"] = $clubChamp;
             array_push($players, $player);
         }
+        $statementLadder->close();
         return $players;
     }
 
-    function create_challenge($clubname, $date, $time)
-    {
+    /**
+     * @param $time String provided in unix time in seconds, this makes conversion for database storage easier.
+     * Create an entry in the challenge table containing challenge metadata.
+     */
+    function create_challenge($clubName, $date, $time) {
         $date = intval($date);
-        $mysqldate = date("Y-m-d", $date);
-        $statement = $this->connection->prepare("INSERT INTO challenge (clubid, date, time) VALUES ((SELECT clubid from club WHERE name = ?), ?, ?)");
-        $statement->bind_param("sss", $clubname, $mysqldate, $time);
-        if ($statement->execute())
-        {
-            return true;
-        }
-        return false;
-    }
+        date_default_timezone_set("Europe/London");     // Ensure correct timezone.
+        $mysqlDate = date("Y-m-d", $date);      // Format date for database entry.
 
-    function create_player_challenge($challengeid, $playerid, $didinitiate)
-    {
-        $challengeid = intval($challengeid);
-        $playerid = intval($playerid);
-        $didinitiate = intval($didinitiate);
-        $statement = $this->connection->prepare("INSERT INTO player_challenge (challengeid, playerid, didinitiate) VALUES (?, ?, ?)");
-        $statement->bind_param("iii", $challengeid, $playerid, $didinitiate);
-        if ($statement->execute())
-        {
+        /* Prepare and execute statement. */
+        $statementChallenge = $this->connection->prepare(
+            "INSERT INTO challenge (clubid, date, time) VALUES ((SELECT clubid from club WHERE name = ?), ?, ?)"
+        );
+        $statementChallenge->bind_param("sss", $clubName, $mysqlDate, $time);
+        if ($statementChallenge->execute()) {
             return true;
         }
         return false;
@@ -173,45 +193,85 @@ class Action
     /**
      * Upon creation of a challenge, returns the newly auto-generated challenge ID.
      * This is further used as a reference in the player_challenge table, as part
-     * of a compound key.
-     *
-     * The limitation of this function is that it returns the latest entry, which will
-     * run into concurrency issues if the app gets busy.
+     * of a compound key. The limitation of this function is that it returns the
+     * latest entry, which will run into concurrency issues if the app gets busy.
      */
     function get_challenge_id() {
-        $statement = $this->connection->prepare("SELECT challengeid FROM challenge ORDER BY challengeid DESC LIMIT 1"); // BAD!
-        $statement->execute();
-        $statement->bind_result($challengeid);
-        $statement->fetch();
-        $challengeid = strval($challengeid); // This must be returned in string representation as it is fed back as a parameter.
-        return $challengeid;
+        /* Prepare and execute statement */
+        $statementGetID = $this->connection->prepare(
+            "SELECT challengeid FROM challenge ORDER BY challengeid DESC LIMIT 1"
+        ); // BAD!
+        $statementGetID->bind_result($challengeID);
+        $statementGetID->execute();
+        $statementGetID->fetch();
+        $statementGetID->close();
+        $challengeID = strval($challengeID); // Returned in string format as it is fed back as a parameter
+        return $challengeID;
     }
 
     /**
-     * The improved get_challenges method.
-     * First get a list of challenge ID's and initiation status' from the challenge table, insert these into an array of keypair values.
-     * Using the challenge ID's just obtained, query for other data relating to the challenge, player and opponent.
-     * As we iterate, append the data from the first array (which was used to identify challenge ID's) to the array which is returned.
-     * This results in final array being correctly formatted for JSON encoding.
+     * @param $challengeid String autogenerated challenge ID, originally returned from create_challenge.
+     * Use the autogenerated challenge ID to create player_challenge entries for both players.
      */
-    function get_challenges($playerid) {
-        $statement_get_challenge_ids = $this->connection->prepare("SELECT challengeid, didinitiate FROM player_challenge WHERE playerid = ? AND didwin = -1");
-        $playerid = intval($playerid);
-        $statement_get_challenge_ids->bind_param("i", $playerid);
-        $statement_get_challenge_ids->execute();
-        $statement_get_challenge_ids->bind_result($challengeid, $didinitiate);
-        $challengeids_locs = array();
-        while ($statement_get_challenge_ids->fetch()) {
-            $challengeid_loc = array();
-            $challengeid_loc["challengeid"] = $challengeid;
-            $challengeid_loc["didinitiate"] = $didinitiate;
-            array_push($challengeids_locs, $challengeid_loc);
-        }
+    function create_player_challenge($challengeID, $playerID, $opponentID) {
+        $challengeID = intval($challengeID);
 
-        $challenges = array();
+        /* Prepare and execute the user entry, 1 indicates that they initiated the challenge from their client */
+        $playerID = intval($playerID);
+        $statementUser = $this->connection->prepare(
+            "INSERT INTO player_challenge (challengeid, playerid, didinitiate) VALUES (?, ?, 1)"
+        );
+        $statementUser->bind_param("ii", $challengeID, $playerID);
+        if (!$statementUser->execute()) {
+            return false;
+        }
+        $statementUser->close();
+
+        /* Prepare and execute the opponent entry, 0 indicates that they are recieving the challenge */
+        $opponentID = intval($opponentID);
+        $statementOpponent = $this->connection->prepare(
+            "INSERT INTO player_challenge (challengeid, playerid, didinitiate) VALUES (?, ?, 0)"
+        );
+        $statementOpponent->bind_param("ii", $challengeid, $opponentid);
+        if (!$statementOpponent->execute()) {
+            return false;
+        }
+        return true;    // Both statements executed successfully.
+
+    }
+
+    /**
+     * Updated get_challenges method. First obtains a list of challenge ID's and initiation status'
+     * from the player_challenge table, and insert these into an array of keypair values. Using the challenge
+     * ID's, query for challenge metadata, as well as user and opponent data. As
+     * we iterate, append the data from the first array (which was used to identify challenge ID's)
+     * to the array which is returned. This results in final array being correctly formatted for JSON
+     * encoding.
+     */
+    function get_challenges($playerID) {
+        /* Construct a list of challenge ID's an initiation status' */
+        $statementGetIDList = $this->connection->prepare(
+            "SELECT challengeid, didinitiate FROM player_challenge WHERE playerid = ? AND didwin = -1"
+        );
+        $playerID = intval($playerID);
+        $statementGetIDList->bind_param("i", $playerID);
+        $statementGetIDList->execute();
+        $statementGetIDList->bind_result($challengeID, $didInitiate);
+        $challengeList = array();
+        while ($statementGetIDList->fetch()) {
+            $locatedChallenge = array();
+            $locatedChallenge["challengeid"] = $challengeID;
+            $locatedChallenge["didinitiate"] = $didInitiate;
+            array_push($challengeList, $locatedChallenge);
+        }
+        $statementGetIDList->close();
+
+        $challenges = array();  // The final challenges array to be returned.
 
         foreach ($challengeids_locs as $c) {
-            $statement_get_opponent_id = $this->connection->prepare("SELECT playerid FROM player_challenge WHERE challengeid = ? AND playerid != ?");
+            $statementGetOpponentID = $this->connection->prepare(
+                "SELECT playerid FROM player_challenge WHERE challengeid = ? AND playerid != ?"
+            );
             $statement_get_opponent_data = $this->connection->prepare("SELECT fname, lname, elo, winstreak, hotstreak, matchesplayed, wins, losses, highestelo, clubchamp FROM player WHERE playerid = ?");
             $statement_get_challenge_data = $this->connection->prepare("SELECT date, time, (SELECT name FROM club WHERE challenge.clubid = club.clubid ), accepted FROM challenge WHERE challengeid = ?");
             $challenge = array();
