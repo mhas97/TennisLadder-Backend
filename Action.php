@@ -1,10 +1,11 @@
 <?php /** @noinspection ALL */
 
-// [REF: https://www.simplifiedcoding.net/android-mysql-tutorial-to-perform-basic-crud-operation/#Android-MySQL-Tutorial]
-
 /**
- * Class Action
+ * The primary API functionality where communication with the live database takes place.
+ * The API architecture is discussed in the following article:
+ * https://www.simplifiedcoding.net/android-mysql-tutorial-to-perform-basic-crud-operation/#Android-MySQL-Tutorial]
  */
+
 class Action
 {
 
@@ -71,7 +72,7 @@ class Action
     }
 
     /**
-     * Return a list of valid clubs.
+     * Return a list of valid clubs for signup.
      */
     function get_clubs()
     {
@@ -123,7 +124,7 @@ class Action
         );
         $statementGetPlayerData->bind_param("s", $email);
 
-        /* Execute statement and fetch the results. */
+        /* Execute player data statement and fetch the results. */
         $statementGetPlayerData->execute();
         $statementGetPlayerData->bind_result($playerID, $contactNo, $fname, $lname,
             $clubName, $elo, $winStreak, $hotStreak, $matchesPlayed, $numWins, $numLosses, $highestElo, $clubChamp);
@@ -146,6 +147,7 @@ class Action
         $player["losses"] = $numLosses;
         $player["highestelo"] = $highestElo;
         $player["clubchamp"] = $clubChamp;
+
         return $player;
     }
 
@@ -191,14 +193,15 @@ class Action
     }
 
     /**
-     * @param $time String provided in unix time in seconds, this makes conversion for database storage easier.
+     * @param $time String provided in UNIX time (sseconds), this makes for easier conversion for DB storage.
      * Create an entry in the challenge table containing challenge metadata.
      */
     function create_challenge($clubName, $date, $time)
     {
+        /* Format time for database storage */
         $date = intval($date);
-        date_default_timezone_set("Europe/London");     // Ensure correct timezone.
-        $mysqlDate = date("Y-m-d", $date);      // Format date for database entry.
+        date_default_timezone_set("Europe/London");
+        $mysqlDate = date("Y-m-d", $date);
 
         /* Prepare and execute statement. */
         $statementChallenge = $this->connection->prepare
@@ -214,13 +217,13 @@ class Action
 
     /**
      * Upon creation of a challenge, returns the newly auto-generated challenge ID.
-     * This is further used as a reference in the player_challenge table, as part
+     * This is further used as a reference in the player_challenge table as part
      * of a compound key. The limitation of this function is that it returns the
      * latest entry, which will run into concurrency issues if the app gets busy.
      */
     function get_challenge_id()
     {
-        /* Prepare and execute statement */
+        /* Prepare and execute statement. */
         $statementGetID = $this->connection->prepare
         (
             "SELECT challengeid FROM challenge ORDER BY challengeid DESC LIMIT 1"
@@ -229,7 +232,7 @@ class Action
         $statementGetID->execute();
         $statementGetID->fetch();
         $statementGetID->close();
-        $challengeID = strval($challengeID); // Returned in string format as it is fed back as a parameter
+        $challengeID = strval($challengeID); // Returned in string format as it is fed back as a parameter.
         return $challengeID;
     }
 
@@ -241,7 +244,7 @@ class Action
     {
         $challengeID = intval($challengeID);
 
-        /* Prepare and execute the user entry, 1 indicates that they initiated the challenge from their client */
+        /* Prepare and execute the user entry, where 1 indicates that they initiated the challenge from their client. */
         $playerID = intval($playerID);
         $statementUser = $this->connection->prepare
         (
@@ -253,7 +256,7 @@ class Action
         }
         $statementUser->close();
 
-        /* Prepare and execute the opponent entry, 0 indicates that they are recieving the challenge */
+        /* Prepare and execute the opponent entry, 0 indicates that they are recieving the challenge. */
         $opponentID = intval($opponentID);
         $statementOpponent = $this->connection->prepare
         (
@@ -272,8 +275,8 @@ class Action
      * Updated get_challenges method. First obtains a list of challenge ID's and initiation status'
      * from the player_challenge table, and inserts these into an array of keypair values. Using the
      * challenge ID's, query for challenge metadata as well as opponent data. As we iterate, append
-     * the data from the initial array (used to identify challenge ID's) to the array for return.
-     * This results in final array being correctly formatted for JSON encoding.
+     * data from the initial array (used to identify challenge ID's), and the fetched data to the array
+     * for return. This results in final array being correctly formatted for JSON encoding.
      */
     function get_challenges($playerID)
     {
@@ -285,7 +288,7 @@ class Action
             "SELECT challengeid, didinitiate FROM player_challenge WHERE playerid = ? AND didwin = -1"
         );
 
-        /* Prepare and execute statement */
+        /* Prepare and execute statement. */
         $playerID = intval($playerID);
         $statementGetIDList->bind_param("i", $playerID);
         $statementGetIDList->execute();
@@ -299,7 +302,7 @@ class Action
         }
         $statementGetIDList->close();
 
-        /* For each identified challenge, fetch relevant data */
+        /* For each identified challenge, fetch relevant data. */
         $challenges = array();  // The final challenges array to be returned.
         foreach ($challengeList as $c) {
             /* Statement to fetch opponent data, != playerID refers to the opponent. */
@@ -309,7 +312,7 @@ class Action
                         FROM player WHERE playerid = (SELECT playerid FROM player_challenge WHERE challengeid = ? AND playerid != ?)"
             );
 
-            /* Statement to fetch challenge metadata */
+            /* Statement to fetch challenge metadata. */
             $statementGetChallengeData = $this->connection->prepare
             (
                 "SELECT date, time, (SELECT name FROM club 
@@ -318,21 +321,21 @@ class Action
 
             $challenge = array();   // Array to hold a single challenge.
 
-            /* Prepare and execute the opponent data statement */
+            /* Prepare and execute the opponent data statement. */
             $statementGetOpponent->bind_param("ii", $c["challengeid"], $playerID);
             $statementGetOpponent->execute();
             $statementGetOpponent->bind_result($playerID, $fname, $lname, $elo, $winStreak, $hotStreak, $matchesPlayed, $numWins, $numLosses, $highestElo, $clubChamp);
             $statementGetOpponent->fetch();
             $statementGetOpponent->close();
 
-            /* Prepare and execute the challenge data statement */
+            /* Prepare and execute the challenge data statement. */
             $statementGetChallengeData->bind_param("i", $c["challengeid"]);
             $statementGetChallengeData->execute();
             $statementGetChallengeData->bind_result($date, $time, $location, $accepted);
             $statementGetChallengeData->fetch();
             $statementGetChallengeData->close();
 
-            /* Append fetched data to the challenges array */
+            /* Append fetched data to the challenges array. */
             $challenge["challengeid"] = $c["challengeid"];
             $challenge["didinitiate"] = $c["didinitiate"];
             $challenge["opponentid"] = $playerID;
@@ -356,7 +359,7 @@ class Action
     }
 
     /**
-     * Operates similarly to get_challenges. This function simply returns data
+     * Operates similarly to get_challenges. This function instead returns data
      * related to completed matches, where a "match" is a challenge that has
      * been accepted and had its score reported.
      */
@@ -370,7 +373,7 @@ class Action
             "SELECT challengeid, didwin FROM player_challenge WHERE playerid = ? AND didwin != -1"
         );
 
-        /* Prepare and execute statement */
+        /* Prepare and execute statement. */
         $playerID = intval($playerID);
         $statementGetIDList->bind_param("i", $playerID);
         $statementGetIDList->execute();
@@ -383,7 +386,7 @@ class Action
             array_push($matchList, $locatedMatch);
         }
 
-        /* For each identified match, fetch relevant data */
+        /* For each identified match, fetch relevant data. */
         $matches = array(); // The final matches array to be returned.
         foreach ($matchList as $m) {
             /* Statement to fetch opponent data, != playerID refers to the opponent. */
@@ -399,7 +402,7 @@ class Action
                 "SELECT date, score FROM challenge WHERE challengeid = ?"
             );
 
-            $match = array();   // Array to hold a single match
+            $match = array();   // Array to hold a single match.
 
             /* Prepare and execute the opponent data statement */
             $statementGetOpponent->bind_param("ii", $m["challengeid"], $playerID);
@@ -408,14 +411,14 @@ class Action
             $statementGetOpponent->fetch();
             $statementGetOpponent->close();
 
-            /* Prepare and execute the match data statement */
+            /* Prepare and execute the match data statement. */
             $statementGetChallengeData->bind_param("i", $m["challengeid"]);
             $statementGetChallengeData->execute();
             $statementGetChallengeData->bind_result($date, $score);
             $statementGetChallengeData->fetch();
             $statementGetChallengeData->close();
 
-            /* Append fetched data to the matches array */
+            /* Append fetched data to the matches array. */
             $match["challengeid"] = $m["challengeid"];
             $match["didwin"] = $m["didwin"];
             $match["opponentid"] = $opponentID;
@@ -462,7 +465,7 @@ class Action
 
     /**
      * Shares functionality for both cancelling and declining a challenge.
-     * Deletes the challenge with the associated ID from both challenge
+     * Deletes the challenge with the associated ID from both the challenge
      * and player_challenge tables.
      */
     function cancel_challenge($challengeID)
@@ -575,7 +578,7 @@ class Action
      */
     function get_club_max_elo($winnerID)
     {
-        /* Fetch every players elo from the users club. */
+        /* Fetch every players Elo from the users club. */
         $statementGetElos = $this->connection->prepare
         (
             "SELECT playerid, elo FROM player WHERE clubid = 
@@ -612,7 +615,7 @@ class Action
     /**
      * @deprecated
      * The initial get_challenges function. Data formatting
-     * was not suitable for JSON encoding.
+     * was not suitable for JSON encoding and query was inefficient.
      */
     /* function get_challenges($playerid)
        {

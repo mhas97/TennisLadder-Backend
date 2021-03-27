@@ -1,10 +1,9 @@
 <?php
 
 /**
- * The API architecture can be found in this article:
+ * The API architecture is discussed in the following article:
  * https://www.simplifiedcoding.net/android-mysql-tutorial-to-perform-basic-crud-operation/#Android-MySQL-Tutorial]
  */
-
 require_once dirname(__FILE__) . "/Action.php";
 
 /**
@@ -30,7 +29,7 @@ function check_for_parameters($params) {
     }
 }
 
-/* Holds the response for a request */
+/* Holds the response for a request. */
 $response = array();
 
 /**
@@ -79,7 +78,7 @@ if (isset($_GET["tennisapi"]))
             }
             break;
 
-        /* Obtains a list of valid clubs to populate menu selection */
+        /* Obtains a list of valid clubs to populate menu selection. */
         case "get_clubs":
             $db = new Action();
             $response["clubs"] = $db->get_clubs();
@@ -133,8 +132,8 @@ if (isset($_GET["tennisapi"]))
         case "create_player_challenge":
             check_for_parameters(array("challengeid", "playerid", "opponentid"));   // Check for parameters.
             $db = new Action();
-            $result = $db->create_player_challenge($_POST["challengeid"], $_POST["playerid"], $_POST["opponentid"]);
-            if ($result) {
+            $success = $db->create_player_challenge($_POST["challengeid"], $_POST["playerid"], $_POST["opponentid"]);
+            if ($success) {
                 $response["error"] = false;
                 $response["message"] = "Challenge created";
             }
@@ -144,7 +143,7 @@ if (isset($_GET["tennisapi"]))
             }
             break;
 
-            /* Fetches the match history for a given player ID */
+            /* Fetches the match history for a given player ID. */
         case "get_match_history":
             if (isset($_GET["playerid"])) {
                 $db = new Action();
@@ -158,7 +157,7 @@ if (isset($_GET["tennisapi"]))
             }
             break;
 
-            /* Deletes a player with a given ID */
+            /* Deletes a player with a given ID. */
         case "delete_player":
             if (isset($_GET["playerid"])) {
                 $db = new Action();
@@ -171,7 +170,7 @@ if (isset($_GET["tennisapi"]))
             }
             break;
 
-        /* Fetches active challenges for a given player ID */
+        /* Fetches active challenges for a given player ID. */
         case "get_challenges":
             if (isset($_GET["playerid"])) {
                 $db = new Action();
@@ -185,7 +184,7 @@ if (isset($_GET["tennisapi"]))
             }
             break;
 
-            /* Accepts a challenge with a given ID */
+            /* Accepts a challenge with a given ID. */
         case "accept_challenge":
             if (isset($_GET["challengeid"])) {
                 $db = new Action();
@@ -199,7 +198,7 @@ if (isset($_GET["tennisapi"]))
             }
             break;
 
-            /* Cancels (shares functionality with decline) a challenge with a given ID */
+            /* Cancels (shares functionality with decline) a challenge with a given ID. */
         case "cancel_challenge":
             if (isset($_GET["challengeid"])) {
                 $db = new Action();
@@ -217,7 +216,7 @@ if (isset($_GET["tennisapi"]))
         case "post_result":
             check_for_parameters(array("challengeid", "winnerid", "loserid", "score", "winnerelo", "loserelo", "newhighestelo", "hotstreak"));
             $db = new Action();
-            $result = $db->post_result
+            $success = $db->post_result
             (
                 $_POST["challengeid"],
                 $_POST["winnerid"],
@@ -228,7 +227,7 @@ if (isset($_GET["tennisapi"]))
                 $_POST["newhighestelo"],
                 $_POST["hotstreak"]
             );
-            if ($result) {
+            if ($success) {
                 $response["error"] = false;
                 $response["message"] = "Result submitted";
 
@@ -239,13 +238,13 @@ if (isset($_GET["tennisapi"]))
             }
             break;
 
-            /* If no matching API call is found, return an error */
+            /* If no matching API call is found, return an error. */
         default:
             $response["error"] = true;
             $response["message"] = "API functionality does not exist";
     }
 }
-/* If the API name is invalid, return error status */
+/* If the API name is invalid, return error status. */
 else {
     $response["error"] = true;
     $response["message"] = "Invalid API call";
