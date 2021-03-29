@@ -11,8 +11,8 @@
  * - Challenge creation and modification
  * - Achievement requirement checking
  *
- * The API architecture is discussed in the following article:
- * https://www.simplifiedcoding.net/android-mysql-tutorial-to-perform-basic-crud-operation/#Android-MySQL-Tutorial]
+ * The implemented API architecture is discussed in the following article:
+ * https://www.simplifiedcoding.net/android-mysql-tutorial-to-perform-basic-crud-operation/#Android-MySQL-Tutorial
  */
 require_once dirname(__FILE__) . "/PlayerRequest.php";
 require_once dirname(__FILE__) . "/ChallengeRequest.php";
